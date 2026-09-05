@@ -20,16 +20,6 @@ jobs:
           cmdline-tools-version: latest
           accept-android-sdk-licenses: true
 
-      - name: Install 32-bit libs
-        run: |
-          sudo dpkg --add-architecture i386
-          sudo apt-get update
-          sudo apt-get install -y libncurses5:i386 lib32z1 libstdc++6:i386 || true
-          if [ ! -f /usr/lib/i386-linux-gnu/libncurses.so.5 ]; then
-            sudo ln -sf /usr/lib/i386-linux-gnu/libncurses.so.6 /usr/lib/i386-linux-gnu/libncurses.so.5 || true
-            sudo ln -sf /usr/lib/i386-linux-gnu/libtinfo.so.6 /usr/lib/i386-linux-gnu/libtinfo.so.5 || true
-          fi
-
       - name: Unzip source
         id: locate
         run: |
@@ -38,17 +28,26 @@ jobs:
           echo "project_dir=$DIR" >> $GITHUB_OUTPUT
           echo "sdk.dir=$ANDROID_HOME" > "$DIR/local.properties"
 
-      - name: Setup Gradle and Re-init Wrapper
+      - name: Install required Android SDK components
+        run: |
+          cd ${{ steps.locate.outputs.project_dir }}
+          COMPILE_SDK=$(grep -rhoP '(compileSdk|compileSdkVersion)\s*=?\s*\K[0-9]+' . --include='*.gradle' --include='*.kts' 2>/dev/null | head -n 1)
+          if [ -z "$COMPILE_SDK" ]; then COMPILE_SDK=35; fi
+          echo "Detected compileSdk: $COMPILE_SDK"
+          yes | sdkmanager --sdk_root=$ANDROID_HOME "platforms;android-$COMPILE_SDK" "build-tools;$COMPILE_SDK.0.0" > /dev/null 2>&1 || true
+          yes | sdkmanager --sdk_root=$ANDROID_HOME --licenses > /dev/null 2>&1 || true
+
+      - name: Setup Gradle 8.7
         uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-version: '8.5'
+          gradle-version: '8.7'
+
+      - name: Verify Gradle version
+        run: gradle --version
 
       - name: Build debug APK
         working-directory: ${{ steps.locate.outputs.project_dir }}
-        run: |
-          gradle wrapper --gradle-version 8.5
-          chmod +x ./gradlew
-          ./gradlew assembleDebug --no-daemon --stacktrace
+        run: gradle assembleDebug --no-daemon --stacktrace
 
       - name: Upload APK
         if: success()
