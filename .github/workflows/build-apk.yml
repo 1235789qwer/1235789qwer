@@ -20,36 +20,35 @@ jobs:
           cmdline-tools-version: latest
           accept-android-sdk-licenses: true
 
-      - name: Install dependencies & fix libncurses
+      - name: Install 32-bit libs
         run: |
           sudo dpkg --add-architecture i386
           sudo apt-get update
-          sudo apt-get install -y dos2unix libncurses5:i386 lib32z1 libstdc++6:i386 || true
-          # 兜底：如果系统没有libncurses5，用6伪装成5
+          sudo apt-get install -y libncurses5:i386 lib32z1 libstdc++6:i386 || true
           if [ ! -f /usr/lib/i386-linux-gnu/libncurses.so.5 ]; then
             sudo ln -sf /usr/lib/i386-linux-gnu/libncurses.so.6 /usr/lib/i386-linux-gnu/libncurses.so.5 || true
             sudo ln -sf /usr/lib/i386-linux-gnu/libtinfo.so.6 /usr/lib/i386-linux-gnu/libtinfo.so.5 || true
           fi
 
-      - name: Unzip & auto-locate gradlew
+      - name: Unzip source
         id: locate
         run: |
           unzip -o "ZNET_一键部署.zip" -d extracted
-          GW=$(find extracted -type f -name "gradlew" | head -n 1)
-          echo "gradlew path: $GW"
-          if [ -z "$GW" ]; then
-            echo "ERROR: gradlew not found in zip!" >&2
-            exit 1
-          fi
-          DIR=$(dirname "$GW")
+          DIR=$(find extracted -type d -name "ZNET_Complete" | head -n 1)
           echo "project_dir=$DIR" >> $GITHUB_OUTPUT
           echo "sdk.dir=$ANDROID_HOME" > "$DIR/local.properties"
-          dos2unix "$GW"
-          chmod +x "$GW"
+
+      - name: Setup Gradle and Re-init Wrapper
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.5'
 
       - name: Build debug APK
         working-directory: ${{ steps.locate.outputs.project_dir }}
-        run: ./gradlew assembleDebug --no-daemon --stacktrace
+        run: |
+          gradle wrapper --gradle-version 8.5
+          chmod +x ./gradlew
+          ./gradlew assembleDebug --no-daemon --stacktrace
 
       - name: Upload APK
         if: success()
