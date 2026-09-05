@@ -1,0 +1,27 @@
+name: Unzip and Deploy
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'ZNET_一键部署.zip'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Unzip file
+        run: |
+          unzip -o ZNET_一键部署.zip -d deploy_temp
+          
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./deploy_temp
