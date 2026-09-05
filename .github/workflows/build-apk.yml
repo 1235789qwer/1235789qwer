@@ -16,21 +16,30 @@ jobs:
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          cmdline-tools-version: latest
+          accept-android-sdk-licenses: true
+
+      - name: Accept licenses & create local.properties
+        run: |
+          echo "sdk.dir=$ANDROID_HOME" > local.properties
+          yes | sdkmanager --sdk_root=$ANDROID_HOME --licenses > /dev/null 2>&1 || true
 
       - name: Unzip source
         run: |
           unzip -o "ZNET_一键部署.zip" -d project
-          ls -la project
+          ls -la project/ZNET_Complete
 
       - name: Grant execute permission for gradlew
-        run: chmod +x project/gradlew
+        run: chmod +x project/ZNET_Complete/gradlew
 
       - name: Build debug APK
-        working-directory: project
-        run: ./gradlew assembleDebug
+        working-directory: project/ZNET_Complete
+        run: ./gradlew assembleDebug --stacktrace
 
       - name: Upload APK
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: app-debug
-          path: project/app/build/outputs/apk/debug/app-debug.apk
+          path: project/ZNET_Complete/app/build/outputs/apk/debug/app-debug.apk
